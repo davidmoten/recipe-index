@@ -25,12 +25,14 @@ public class Main {
 	public static void main(String[] args) {
 		AtomicReference<Character> letter = new AtomicReference<>();
 		AtomicReference<String> previous = new AtomicReference<String>();
+
 		Strings //
 				.from(Main.class.getResourceAsStream("/2012.txt")) //
 				.compose(Transformers.split("\n")) //
 				.map(s -> s.trim()) //
 				.filter(s -> s.length() > 0) //
 				.filter(s -> !Character.isDigit(s.charAt(0))) //
+				.filter(s -> !s.equals("recipe index.")) //
 				.doOnNext(s -> {
 					if (s.length() == 1 && Character.isLetter(s.charAt(0))) {
 						letter.set(s.charAt(0));
@@ -38,21 +40,37 @@ public class Main {
 				}).filter(s -> s.length() > 1) //
 				.map(s -> {
 					String result;
-					if (Character.isLowerCase(s.charAt(0))|| s.charAt(0) == '&') {
-						if (s.contains("..."))
+					boolean closed = false;
+					char ch = s.charAt(0);
+					if (Character.isLowerCase(ch) || ch == '&' || ch == '(' || ch == '\'') {
+						if (hasPageRef(s)) {
 							result = previous + " " + s;
-						else
+							closed = true;
+						} else if (s.contains(", see")) {
+							result = "[SEE] " + s;
+							closed = true;
+						} else {
 							result = "[HEADING] " + s;
-					} else if (s.contains("...")) {
+							closed = true;
+						}
+					} else if (hasPageRef(s)) {
 						result = s;
+						closed = true;
 					} else {
 						result = null;
 					}
-					previous.set(s);
+					if (closed)
+						previous.set("");
+					else
+						previous.set((previous + " " + s).trim());
 					return result;
 				}) //
 				.filter(s -> s != null) //
 				.doOnNext(s -> System.out.println(letter.get() + ": " + s)) //
 				.subscribe();
+	}
+
+	private static boolean hasPageRef(String s) {
+		return s.contains(":");
 	}
 }
